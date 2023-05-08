@@ -1,8 +1,11 @@
-/*
+/* file needs to exist for github release action to work */
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.teamdynamix-setting-div>.setting-item>.setting-item-control {
+  justify-content: space-around;
+  padding: 0;
+  width: 100%;
+}
 
-If your plugin does not need CSS, delete this file.
-
-*/
+.teamdynamix-keyword-setting {
+  width: 45%;
+}

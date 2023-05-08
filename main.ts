@@ -1,81 +1,62 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, ButtonComponent, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { updateFileFromServer } from "./src/updateFileFromServer";
+import { DEFAULT_SETTINGS, TeamDynamixSettings } from "./src/DefaultSettings";
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
-	mySetting: string;
-}
-
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
-}
-
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class TeamDynamix extends Plugin {
+	settings: TeamDynamixSettings;
+	hasIntervalFailure: boolean = false;
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
-
-		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
+			id: 'replace-tdx-ids',
+			name: 'Replace TeamDynamix Item IDs With Links',
+			editorCallback: () => {
+				updateFileFromServer(this.settings, this.app)
 			}
 		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+		if (this.settings.enableAutomaticReplacement) {
+			this.registerEvent(this.app.workspace.on('file-open', async () => {
+				if (this.hasIntervalFailure) {
+					console.log("TeamDynamix: not checking for replacement keyword because of previous server " +
+						"failure. Either use the manual keyword, or restart the app.")
+					return;
 				}
-			}
-		});
+				try {
+					await updateFileFromServer(this.settings, this.app)
+				} catch {
+					this.hasIntervalFailure = true;
+				}
+			}));
+		}
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new TeamDynamixPluginSettingTab(this.app, this));
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		/* This is in addition to the on file-open callback. This helps with
+				 1. manually adding the keyword to a new spot in a file
+				 2. when you make a setting change, such as changing your keyword
+			If this notices a keyword, it should wait at least 2 seconds before updating the text - this avoids a shocking
+			user experience.
+		 */
+		// 5 sec sleep because we want to ensure the file-open event finishes before this loop starts
+		await new Promise(r => setTimeout(r, 3000));
+		this.registerInterval(window.setInterval(() => this.updateFileFromServerIfEnabled(), 4 * 1000))
+	}
+
+	async updateFileFromServerIfEnabled() {
+		if (this.settings.enableAutomaticReplacement && !this.hasIntervalFailure) {
+			await new Promise(r => setTimeout(r, 2000));
+			try {
+				await updateFileFromServer(this.settings, this.app)
+			}
+			catch {
+				this.hasIntervalFailure = true;
+			}
+		}
 	}
 
 	onunload() {
@@ -91,47 +72,123 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+class TeamDynamixPluginSettingTab extends PluginSettingTab {
+	plugin: TeamDynamix;
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: TeamDynamix) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
+		containerEl.createEl('h1', { text: 'TeamDynamix' });
+		containerEl.createEl('a', { text: 'Important - see usage instructions', href: 'https://github.com/rukas/obsidian-teamdynamix/tree/master#readme' });
 
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
+		this.addbaseUrlSetting(containerEl);
+		this.addEnableAutomaticReplacementSetting(containerEl);
+		this.addKeywordTeamDynamixQuerySetting(containerEl);
+	}
 
+	private addbaseUrlSetting(containerEl: HTMLElement) {
 		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
+			.setName('TeamDynamix Base URL')
+			.setDesc('Your TeamDynamix instance base URL. eg `https://solutions.teamdynamix.com`')
 			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+				.setPlaceholder('https://solutions.teamdynamix.com')
+				.setValue(this.plugin.settings.teamdynamixBaseUrl)
 				.onChange(async (value) => {
 					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.teamdynamixBaseUrl = value;
 					await this.plugin.saveSettings();
 				}));
+	}
+
+	private addEnableAutomaticReplacementSetting(containerEl: HTMLElement) {
+		new Setting(containerEl)
+			.setName('Enable automatic replacement of keyword with links')
+			.setDesc("When enabled, any time a keyword is seen in a file, it will be automatically" +
+				" replaced with your a link to the TeamDynamix item." +
+				" When disabled, manually use the 'Replace TeamDynamix Item IDs With Links' command to replace your keyword with links")
+			.addToggle(t =>
+				t.setValue(this.plugin.settings.enableAutomaticReplacement)
+					.onChange(async (value) => {
+						this.plugin.settings.enableAutomaticReplacement = value;
+						await this.plugin.saveSettings();
+					}
+					));
+	}
+
+	private addKeywordTeamDynamixQuerySetting(containerEl: HTMLElement) {
+		// todo add warning/stop if multiple same keywords
+		containerEl.createEl('h2', { text: 'Keywords and Filter Definitions' });
+		const filterDescription = document.createDocumentFragment();
+		filterDescription.append('This plugin will find the specified keyword in a currently open file and replace ' +
+			'the keyword with a link to the TeamDynamix item.',
+			containerEl.createEl("br"),
+			"Each keyword / type pair you use should be unique."
+		)
+		new Setting(containerEl).setDesc(filterDescription);
+
+		this.plugin.settings.keywordToItemType.forEach(
+			(keywordToItemType, index) => {
+				const div = this.containerEl.createEl("div");
+				div.addClass("teamdynamix-setting-div");
+				new Setting(containerEl)
+					.addText(text => text
+						.setPlaceholder("@@TEAMDYNAMIX_KEYWORD@@")
+						.setValue(
+							this.plugin.settings.keywordToItemType[index].keyword
+						)
+						.onChange(async (value) => {
+							this.plugin.settings.keywordToItemType[index].keyword = value;
+							await this.plugin.saveSettings();
+						})
+						.inputEl.addClass("teamdynamix-keyword-setting")
+					)
+					.addText(text => text
+						.setPlaceholder("Ticket")
+						.setValue(
+							this.plugin.settings.keywordToItemType[index].itemType
+						)
+						.onChange(async (value) => {
+							this.plugin.settings.keywordToItemType[index].itemType = value;
+							await this.plugin.saveSettings();
+						})
+						.inputEl.addClass("teamdynamix-keyword-setting")
+					)
+					.addExtraButton(eb => {
+						eb.setIcon("cross")
+							.setTooltip("Delete")
+							.onClick(async () => {
+								this.plugin.settings.keywordToItemType.splice(
+									index,
+									1
+								);
+								await this.plugin.saveSettings();
+								await this.display()
+							})
+					})
+				div.appendChild(this.containerEl.lastChild);
+			});
+
+
+		new Setting(this.containerEl)
+			.setName("Add another keyword and TeamDynamix item type")
+			.addButton((button: ButtonComponent) => {
+				button
+					.setButtonText("+")
+					.setCta()
+					.onClick(async () => {
+						this.plugin.settings.keywordToItemType.push({
+							keyword: "",
+							itemType: ""
+						});
+						await this.plugin.saveSettings();
+						this.display();
+					});
+			});
 	}
 }
