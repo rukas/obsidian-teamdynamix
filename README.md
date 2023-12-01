@@ -1,10 +1,15 @@
 # Obsidian TeamDynamix Plugin
 
-This is a TeamDynamix plugin for Obsidian (https://obsidian.md).
+This is a TeamDynamix plugin for Obsidian (https://obsidian.md). 
+
+Converts TeamDynamix item IDs such as `Asset #79292`, `Incident #18722628`, `Service Request #22859387`, etc to valid TeamDynamix links upon file save.
 
 ## Usage
 
-1. Install this plugin through Obsidian and enable it
-2. Enter your TeamDynamix Base URL
+1. Search for "TeamDynamix" in Obsidian's community plugins browser
+2. Enable the plugin in your Obsidian settings (find "TeamDynamix" under "Community plugins").
+3. Enter your TeamDynamix Base URL in the settings
 
-By default pasted item IDs such as `Asset #79292`, `Incident #18722628`, `Service Request #22859387`, etc will automatically be converted to links within a few seconds.
+## Getting Started
+
+Add a TeamDynamix item ID such as `Change #1000000` to a file.  Upon file save it will be automatically converted to a markdown link that points to the TeamDynamix URL.
