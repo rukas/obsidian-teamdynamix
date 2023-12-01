@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-teamdynamix",
-	"version": "1.0.0",
-	"description": "Automatically insert links for TeamDynamix item IDs",
+	"name": "teamdynamix",
+	"version": "1.0.2",
+	"description": "Converts TeamDynamix Item IDs into markdown links",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
