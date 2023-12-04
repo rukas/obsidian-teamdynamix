@@ -1,6 +1,6 @@
 {
 	"name": "teamdynamix",
-	"version": "1.0.2",
+	"version": "1.0.4",
 	"description": "Converts TeamDynamix Item IDs into markdown links",
 	"main": "main.js",
 	"scripts": {
