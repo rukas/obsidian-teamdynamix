@@ -1,6 +1,6 @@
 import { App, ButtonComponent, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
-import { updateFileFromServer } from "./src/updateFileFromServer";
-import { DEFAULT_SETTINGS, TeamDynamixSettings } from "./src/DefaultSettings";
+import { updateFileFromServer } from "./updateFileFromServer";
+import { DEFAULT_SETTINGS, TeamDynamixSettings } from "./defaultSettings";
 
 export default class TeamDynamix extends Plugin {
 	settings: TeamDynamixSettings;

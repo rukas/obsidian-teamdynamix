@@ -1,5 +1,5 @@
 import { App, Editor, Notice, } from 'obsidian'
-import { TeamDynamixSettings } from "./DefaultSettings";
+import { TeamDynamixSettings } from "./defaultSettings";
 
 export async function updateFileFromServer(settings: TeamDynamixSettings, app: App) {
   const file = app.workspace.getActiveFile();
