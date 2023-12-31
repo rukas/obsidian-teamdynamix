@@ -1,6 +1,6 @@
-import { App, ButtonComponent, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, ButtonComponent, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { updateFileFromServer } from "./updateFileFromServer";
-import { DEFAULT_SETTINGS, TeamDynamixSettings } from "./defaultSettings";
+import { DEFAULT_SETTINGS, TeamDynamixSettings } from "./DefaultSettings";
 
 export default class TeamDynamix extends Plugin {
 	settings: TeamDynamixSettings;
@@ -11,14 +11,14 @@ export default class TeamDynamix extends Plugin {
 
 		this.addCommand({
 			id: 'replace-tdx-ids',
-			name: 'Replace TeamDynamix Item IDs With Links',
+			name: 'Replace TeamDynamix item IDs with links',
 			editorCallback: () => {
 				updateFileFromServer(this.settings, this.app)
 			}
 		});
 
 		if (this.settings.enableAutomaticReplacement) {
-			this.registerEvent(this.app.workspace.on('file-open', async () => {
+			this.registerEvent(this.app.workspace.on('editor-change', async () => {
 				if (this.hasIntervalFailure) {
 					console.log("TeamDynamix: not checking for replacement keyword because of previous server " +
 						"failure. Either use the manual keyword, or restart the app.")
@@ -84,7 +84,6 @@ class TeamDynamixPluginSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 
 		containerEl.empty();
-		containerEl.createEl('h1', { text: 'TeamDynamix' });
 		containerEl.createEl('a', { text: 'Important - see usage instructions', href: 'https://github.com/rukas/obsidian-teamdynamix/tree/master#readme' });
 
 		this.addbaseUrlSetting(containerEl);
