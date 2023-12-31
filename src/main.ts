@@ -147,17 +147,16 @@ class TeamDynamixPluginSettingTab extends PluginSettingTab {
 						})
 						.inputEl.addClass("teamdynamix-keyword-setting")
 					)
-					.addText(text => text
-						.setPlaceholder("Ticket")
-						.setValue(
-							this.plugin.settings.keywordToItemType[index].itemType
-						)
-						.onChange(async (value) => {
+					.addDropdown(dropDown => {
+						for (const typeToPath of this.plugin.settings.typeToPath) {
+							dropDown.addOption(typeToPath.itemType, typeToPath.itemType);
+						}
+						dropDown.setValue(this.plugin.settings.keywordToItemType[index].itemType);
+						dropDown.onChange(async (value) =>	{
 							this.plugin.settings.keywordToItemType[index].itemType = value;
 							await this.plugin.saveSettings();
-						})
-						.inputEl.addClass("teamdynamix-keyword-setting")
-					)
+						});
+					})
 					.addExtraButton(eb => {
 						eb.setIcon("cross")
 							.setTooltip("Delete")
