@@ -27,7 +27,7 @@ export async function updateFileFromServer(settings: TeamDynamixSettings, app: A
       // build a regex string for just the keywords of the current item type
       let localMatchString = `(?<!\\[)(${itemTypesGroup[key].map(a => a.keyword).join('|')})(\\d+)(?!.*\\])`;
 
-      // console.log(localMatchString);
+      console.log(localMatchString);
 
       // if there are matches for the current item type perform a replacement on the file
       if (fileContents.match(localMatchString)) {

@@ -1,6 +1,7 @@
 export interface TeamDynamixSettings {
   teamdynamixBaseUrl: string;
   enableAutomaticReplacement: boolean;
+  triggerOnEditorPaste: boolean;
   keywordToItemType: keywordToItemType[];
   typeToPath: typeToPath[];
 }
@@ -18,6 +19,7 @@ export interface typeToPath {
 export const DEFAULT_SETTINGS: TeamDynamixSettings = {
   teamdynamixBaseUrl: 'https://solutions.teamdynamix.com',
   enableAutomaticReplacement: true,
+  triggerOnEditorPaste: true,
   keywordToItemType: [
     { keyword: "Major Incident #", itemType: "Ticket" },
     { keyword: "Incident #", itemType: "Ticket" },

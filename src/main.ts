@@ -84,12 +84,15 @@ class TeamDynamixPluginSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 
 		containerEl.empty();
-		containerEl.createEl('a', { text: 'Important - see usage instructions', href: 'https://github.com/rukas/obsidian-teamdynamix/tree/master#readme' });
 
 		this.addbaseUrlSetting(containerEl);
 		this.addEnableAutomaticReplacementSetting(containerEl);
+		this.addTriggerOnEditorPasteSetting(containerEl);
 		this.addKeywordTeamDynamixQuerySetting(containerEl);
 	}
+
+	private static createFragmentWithHTML = (html: string) =>
+		createFragment((documentFragment) => (documentFragment.createDiv().innerHTML = html));
 
 	private addbaseUrlSetting(containerEl: HTMLElement) {
 		new Setting(containerEl)
@@ -108,16 +111,47 @@ class TeamDynamixPluginSettingTab extends PluginSettingTab {
 	private addEnableAutomaticReplacementSetting(containerEl: HTMLElement) {
 		new Setting(containerEl)
 			.setName('Enable automatic replacement of keyword with links')
-			.setDesc("When enabled, any time a keyword is seen in a file, it will be automatically" +
-				" replaced with your a link to the TeamDynamix item." +
-				" When disabled, manually use the 'Replace TeamDynamix Item IDs With Links' command to replace your keyword with links")
+			.setDesc(
+				TeamDynamixPluginSettingTab.createFragmentWithHTML(
+					'<p>When enabled, any time a keyword is seen in a file, it will be automatically.</p>' +
+					'<p>When disabled, manually use the \'Replace TeamDynamix Item IDs With Links\' command to replace your keyword with links.</p>',
+				),
+			)
 			.addToggle(t =>
 				t.setValue(this.plugin.settings.enableAutomaticReplacement)
 					.onChange(async (value) => {
 						this.plugin.settings.enableAutomaticReplacement = value;
+						if (!value) {
+							this.plugin.settings.triggerOnEditorPaste = false;
+						}
+						console.log(`setting in addEnableAutomaticReplacementSetting: ${this.plugin.settings.triggerOnEditorPaste}`);
 						await this.plugin.saveSettings();
+						await this.display();
 					}
 					));
+	}
+
+	private addTriggerOnEditorPasteSetting(containerEl: HTMLElement) {
+		new Setting(containerEl)
+			.setName('Trigger automate replacement only on paste events')
+			.setDesc(
+				TeamDynamixPluginSettingTab.createFragmentWithHTML(
+					'<p><b>Important:</b> This is only available when \'Enable automatic replacement of keyword with links\' is enabled.</p>' +
+					'<p>When enabled, the plugin will only look for changes to the markdown files.</p>' +
+					'<p>when a paste action is taken. When disabled, the plugin will look for TeamDynamix item IDs on all changes.</p>',
+				),
+			)
+			.addToggle(t =>
+				t.setValue(this.plugin.settings.triggerOnEditorPaste)
+					.onChange(async (value) => {
+						this.plugin.settings.triggerOnEditorPaste = value;
+						console.log(`setting in addTriggerOnEditorPasteSetting: ${this.plugin.settings.triggerOnEditorPaste}`);
+						await this.plugin.saveSettings();
+						await this.display();
+					}
+					)
+					.setDisabled(!this.plugin.settings.enableAutomaticReplacement)
+			);
 	}
 
 	private addKeywordTeamDynamixQuerySetting(containerEl: HTMLElement) {
@@ -152,7 +186,7 @@ class TeamDynamixPluginSettingTab extends PluginSettingTab {
 							dropDown.addOption(typeToPath.itemType, typeToPath.itemType);
 						}
 						dropDown.setValue(this.plugin.settings.keywordToItemType[index].itemType);
-						dropDown.onChange(async (value) =>	{
+						dropDown.onChange(async (value) => {
 							this.plugin.settings.keywordToItemType[index].itemType = value;
 							await this.plugin.saveSettings();
 						});
