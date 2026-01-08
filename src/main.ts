@@ -1,4 +1,4 @@
-import { App, ButtonComponent, Plugin, PluginSettingTab, Setting, TFile, Editor } from 'obsidian';
+import { App, ButtonComponent, Plugin, PluginSettingTab, Setting, TFile, Editor, debounce } from 'obsidian';
 import { updateFileFromServer } from "./updateFileFromServer";
 import { DEFAULT_SETTINGS, TeamDynamixSettings } from "./DefaultSettings";
 
@@ -20,7 +20,7 @@ export default class TeamDynamix extends Plugin {
 		});
 
 		if (this.settings.enableAutomaticReplacement) {
-			this.registerEvent(this.app.workspace.on('editor-change', (editor) => {
+			const debouncedReplace = debounce((editor: Editor) => {
 				if (this.hasIntervalFailure) {
 					console.log("TeamDynamix: not checking for replacement keyword because of previous server " +
 						"failure. Either use the manual keyword, or restart the app.")
@@ -31,7 +31,9 @@ export default class TeamDynamix extends Plugin {
 				} catch {
 					this.hasIntervalFailure = true;
 				}
-			}));
+			}, 1500, false); // Debounce: 1.5s delay, false = wait for user to stop typing (trailing edge)
+
+			this.registerEvent(this.app.workspace.on('editor-change', debouncedReplace));
 		}
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
@@ -46,7 +48,10 @@ export default class TeamDynamix extends Plugin {
 		 */
 		// 5 sec sleep because we want to ensure the file-open event finishes before this loop starts
 		await new Promise(r => setTimeout(r, 3000));
-		this.registerInterval(window.setInterval(() => this.updateFileFromServerIfEnabled(), 4 * 1000))
+		// Removed aggressive background polling to prevent interrupting user typing.
+		// To re-enable background checking (e.g. for external changes), uncomment the line below,
+		// but be aware it may conflict with active typing if not carefully managed.
+		// this.registerInterval(window.setInterval(() => this.updateFileFromServerIfEnabled(), 4 * 1000))
 	}
 
 	async updateFileFromServerIfEnabled() {
