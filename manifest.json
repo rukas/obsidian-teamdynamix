@@ -1,7 +1,7 @@
 {
 	"id": "teamdynamix",
 	"name": "TeamDynamix",
-	"version": "1.0.5",
+	"version": "1.0.10",
 	"minAppVersion": "0.15.0",
 	"description": "Automatically insert links for TeamDynamix item IDs",
 	"author": "Lucas Schill",
