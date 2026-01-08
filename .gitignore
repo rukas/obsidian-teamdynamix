@@ -1,22 +1,29 @@
 # vscode
-.vscode 
+.vscode/
 
 # Intellij
 *.iml
-.idea
+.idea/
 
 # npm
-node_modules
+node_modules/
 
+# Build Artifacts
 # Don't include the compiled main.js file in the repo.
 # They should be uploaded to GitHub releases instead.
 main.js
+dist/
 
-# Exclude sourcemaps
+# Test Coverage
+coverage/
+
+# Sourcemaps
 *.map
 
-# obsidian
+# Obsidian User Data
 data.json
+test-vault/
 
-# Exclude macOS Finder (System Explorer) View States
+# OS Files
 .DS_Store
+Thumbs.db

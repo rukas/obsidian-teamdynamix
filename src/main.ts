@@ -1,4 +1,4 @@
-import { App, ButtonComponent, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, ButtonComponent, Plugin, PluginSettingTab, Setting, TFile, Editor } from 'obsidian';
 import { updateFileFromServer } from "./updateFileFromServer";
 import { DEFAULT_SETTINGS, TeamDynamixSettings } from "./DefaultSettings";
 
@@ -12,20 +12,22 @@ export default class TeamDynamix extends Plugin {
 		this.addCommand({
 			id: 'replace-tdx-ids',
 			name: 'Replace TeamDynamix item IDs with links',
-			editorCallback: () => {
-				updateFileFromServer(this.settings, this.app)
+			editorCallback: (editor, view) => {
+				if (view.file) {
+					updateFileFromServer(this.settings, view.file, this.app);
+				}
 			}
 		});
 
 		if (this.settings.enableAutomaticReplacement) {
-			this.registerEvent(this.app.workspace.on('editor-change', async () => {
+			this.registerEvent(this.app.workspace.on('editor-change', (editor) => {
 				if (this.hasIntervalFailure) {
 					console.log("TeamDynamix: not checking for replacement keyword because of previous server " +
 						"failure. Either use the manual keyword, or restart the app.")
 					return;
 				}
 				try {
-					await updateFileFromServer(this.settings, this.app)
+					this.replaceInEditor(editor);
 				} catch {
 					this.hasIntervalFailure = true;
 				}
@@ -51,7 +53,10 @@ export default class TeamDynamix extends Plugin {
 		if (this.settings.enableAutomaticReplacement && !this.hasIntervalFailure) {
 			await new Promise(r => setTimeout(r, 2000));
 			try {
-				await updateFileFromServer(this.settings, this.app)
+				const file = this.app.workspace.getActiveFile();
+				if (file) {
+					await updateFileFromServer(this.settings, file, this.app)
+				}
 			}
 			catch {
 				this.hasIntervalFailure = true;
@@ -61,6 +66,61 @@ export default class TeamDynamix extends Plugin {
 
 	onunload() {
 
+	}
+
+	replaceInEditor(editor: Editor) {
+		const text = editor.getValue();
+
+		// group the keywords by itemType
+		let itemTypesGroup = this.settings.keywordToItemType.reduce((acc, curr) => {
+			if (!acc[curr.itemType]) acc[curr.itemType] = [];
+			acc[curr.itemType].push(curr);
+			return acc;
+		}, {} as any);
+
+		let replacements: { start: number, end: number, text: string }[] = [];
+
+		for (const [key, value] of Object.entries(itemTypesGroup)) {
+			// build a regex string for just the keywords of the current item type
+			const items = value as any[];
+			let localMatchString = `(?<!\\[)(${items.map(a => a.keyword).join('|')})(\\d+)(?!.*\\])`;
+
+			const regex = new RegExp(localMatchString, 'g');
+			let match;
+			while ((match = regex.exec(text)) !== null) {
+				const fullMatch = match[0];
+				if (!fullMatch) continue;
+
+				const itemPath = (this.settings.typeToPath.find(i => i.itemType == key))?.path;
+
+				if (itemPath) {
+					// Reconstruct formatted link
+					// match[1] is keyword, match[2] is ID
+					const keyword = match[1];
+					const id = match[2];
+					const formattedLink = `[${keyword}${id}](${this.settings.teamdynamixBaseUrl}${itemPath}${id})`;
+
+					replacements.push({
+						start: match.index,
+						end: match.index + fullMatch.length,
+						text: formattedLink
+					});
+				}
+			}
+		}
+
+		if (replacements.length > 0) {
+			// Sort descending to prevent offset changes affecting strictly
+			replacements.sort((a, b) => b.start - a.start);
+
+			// Apply replacements
+			// We must check if any replacement overlaps, but with this regex they shouldn't unless keywords overlap substrings
+			for (const r of replacements) {
+				const from = editor.offsetToPos(r.start);
+				const to = editor.offsetToPos(r.end);
+				editor.replaceRange(r.text, from, to);
+			}
+		}
 	}
 
 	async loadSettings() {
@@ -93,7 +153,7 @@ class TeamDynamixPluginSettingTab extends PluginSettingTab {
 
 	private addbaseUrlSetting(containerEl: HTMLElement) {
 		new Setting(containerEl)
-			.setName('TeamDynamix Base URL')
+			.setName('TeamDynamix base URL')
 			.setDesc('Your TeamDynamix instance base URL. eg `https://solutions.teamdynamix.com`')
 			.addText(text => text
 				.setPlaceholder('https://solutions.teamdynamix.com')
@@ -110,7 +170,7 @@ class TeamDynamixPluginSettingTab extends PluginSettingTab {
 			.setName('Enable automatic replacement of keyword with links')
 			.setDesc("When enabled, any time a keyword is seen in a file, it will be automatically" +
 				" replaced with your a link to the TeamDynamix item." +
-				" When disabled, manually use the 'Replace TeamDynamix Item IDs With Links' command to replace your keyword with links")
+				" When disabled, manually use the 'Replace TeamDynamix item IDs with links' command to replace your keyword with links")
 			.addToggle(t =>
 				t.setValue(this.plugin.settings.enableAutomaticReplacement)
 					.onChange(async (value) => {
@@ -122,7 +182,7 @@ class TeamDynamixPluginSettingTab extends PluginSettingTab {
 
 	private addKeywordTeamDynamixQuerySetting(containerEl: HTMLElement) {
 		// todo add warning/stop if multiple same keywords
-		containerEl.createEl('h2', { text: 'Keywords and Filter Definitions' });
+		containerEl.createEl('h2', { text: 'Keywords and filter definitions' });
 		const filterDescription = document.createDocumentFragment();
 		filterDescription.append('This plugin will find the specified keyword in a currently open file and replace ' +
 			'the keyword with a link to the TeamDynamix item.',
@@ -152,7 +212,7 @@ class TeamDynamixPluginSettingTab extends PluginSettingTab {
 							dropDown.addOption(typeToPath.itemType, typeToPath.itemType);
 						}
 						dropDown.setValue(this.plugin.settings.keywordToItemType[index].itemType);
-						dropDown.onChange(async (value) =>	{
+						dropDown.onChange(async (value) => {
 							this.plugin.settings.keywordToItemType[index].itemType = value;
 							await this.plugin.saveSettings();
 						});
@@ -169,7 +229,9 @@ class TeamDynamixPluginSettingTab extends PluginSettingTab {
 								await this.display()
 							})
 					})
-				div.appendChild(this.containerEl.lastChild);
+				if (this.containerEl.lastChild) {
+					div.appendChild(this.containerEl.lastChild);
+				}
 			});
 
 
